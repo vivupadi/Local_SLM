@@ -3,6 +3,9 @@ import numpy as np
 import sounddevice as sd
 import soundfile as sf
 import ollama
+from piper.voice import PiperVoice
+import wave
+import io
 import subprocess
 import tempfile
 import os
@@ -16,7 +19,7 @@ INPUT_DEVICE = 2          # seeed mic
 OUTPUT_DEVICE = 0         # Pi 3.5mm jack
 SAMPLE_RATE = 16000
 RECORD_SECONDS = 5
-PIPER_MODEL = os.path.expanduser("~/piper_models/en_US-amy-medium.onnx")
+PIPER_MODEL = os.path.expanduser("~/en_US-lessac-low.onnx")
 LLM_MODEL = "llama3.2:1b"
 
 # Conversation history (context memory)
@@ -38,6 +41,10 @@ wake_model = WakeWordModel(
 
 print("⏳ Loading Whisper STT model...")
 stt_model = WhisperModel("base", device="cpu", compute_type="int8")
+
+print("Loading Piper TTS model ...")
+piper_voice = PiperVoice.load(PIPER_MODEL)
+print("Piper loaded!!")
 
 print("✅ All models loaded! Say 'Hey Jarvis' to start.\n")
 
@@ -87,7 +94,9 @@ def ask_llm(user_text):
     response = ollama.chat(
         model=LLM_MODEL,
         messages=conversation_history,
-        options={"num_ctx": 2048}
+        options={"num_ctx": 2048,
+                 "num_predict": 80,
+                 "temperature": 0.7}
     )
     reply = response['message']['content']
     conversation_history.append({
@@ -99,15 +108,24 @@ def ask_llm(user_text):
 def speak(text):
     """Convert text to speech using Piper and play it"""
     print(f"🔊 Jarvis: {text}")
+
+    #Play via aplay
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-    subprocess.run([
+    with wave.open(tmp.name, 'wb') as f:
+        f.setnchannels(1)
+        f.setsampwidth(2)
+        f.setframerate(piper_voice.config.sample_rate)
+        piper_voice.synthesize(text, f)
+
+    """subprocess.run([
         "python3", "-m", "piper",
         "--model", PIPER_MODEL,
         "--output_file", tmp.name
     ], input=text.encode(), capture_output=True)
     data, fs = sf.read(tmp.name)
     sd.play(data, fs, device=OUTPUT_DEVICE)
-    sd.wait()
+    sd.wait()"""
+    os.system(f"aplay -D plughw:0,0 {tmp.name}")
     os.unlink(tmp.name)
 
 # ─────────────────────────────────────
