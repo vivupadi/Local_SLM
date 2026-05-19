@@ -43,7 +43,7 @@ print("⏳ Loading Whisper STT model...")
 stt_model = WhisperModel("base", device="cpu", compute_type="int8")
 
 print("Loading Piper TTS model ...")
-piper_voice = PiperVoice.load(PIPER_MODEL)
+piper_voice = PiperVoice.load(PIPER_MODEL, config_path=PIPER_MODEL + '.json')
 print("Piper loaded!!")
 
 print("✅ All models loaded! Say 'Hey Jarvis' to start.\n")
@@ -95,7 +95,7 @@ def ask_llm(user_text):
         model=LLM_MODEL,
         messages=conversation_history,
         options={"num_ctx": 2048,
-                 "num_predict": 80,
+                 "num_predict": 60,
                  "temperature": 0.7}
     )
     reply = response['message']['content']
@@ -109,13 +109,14 @@ def speak(text):
     """Convert text to speech using Piper and play it"""
     print(f"🔊 Jarvis: {text}")
 
-    #Play via aplay
+    """#Play via aplay
     tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
     with wave.open(tmp.name, 'wb') as f:
         f.setnchannels(1)
         f.setsampwidth(2)
         f.setframerate(piper_voice.config.sample_rate)
-        piper_voice.synthesize(text, f)
+        print(f"Piper_sample_rate:  {piper_voice.config.sample_rate}")
+        piper_voice.synthesize(text, f)"""
 
     """subprocess.run([
         "python3", "-m", "piper",
@@ -125,7 +126,34 @@ def speak(text):
     data, fs = sf.read(tmp.name)
     sd.play(data, fs, device=OUTPUT_DEVICE)
     sd.wait()"""
-    os.system(f"aplay -D plughw:0,0 {tmp.name}")
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    tmp.close()
+
+    """with wave.open(tmp.name, 'wb') as f:
+        f.setnchannels(1)
+        f.setsampwidth(2)
+        f.setframerate(piper_voice.config.sample_rate)
+        print(f"Piper_sample_rate:  {piper_voice.config.sample_rate}")
+        for audio_bytes in piper_voice.synthesize_stream_raw(text):
+            f.writeframes(audio_bytes)
+        #piper_voice.synthesize(text, f)"""
+
+    with wave.open(tmp.name, 'wb') as f:
+        piper_voice.synthesize_wav(text, f)
+
+    #Read raw audio    
+    with wave.open(tmp.name, 'rb') as wav_file:
+        raw_audio = wav_file.readframes(wav_file.getnframes())
+        framerate = wav_file.getframerate()
+
+    print(f"Audio size : {len(raw_audio)} bytes")
+
+    audio_np = np.frombuffer(raw_audio, dtype=np.int16).astype(np.float32) / 32768.0
+
+    sd.play(audio_np, samplerate=framerate, device=OUTPUT_DEVICE)
+    sd.wait()
+    """os.system(f"apla y -D plughw:0,0 {tmp.name}")"""
     os.unlink(tmp.name)
 
 # ─────────────────────────────────────
@@ -152,9 +180,10 @@ try:
         prediction = wake_model.predict(audio_chunk)
 
         for key, value in prediction.items():
-            if value > 0.5:
+            if value > 0.6:
                 print(f"\n✅ Wake word detected! ({value:.2f})")
                 #stream.stop_stream()
+
 
                 # Record question
                 audio = record_audio(seconds=5)
@@ -165,6 +194,7 @@ try:
                 if not user_text:
                     print("❌ Couldn't hear anything, try again.")
                     #stream.start_stream()
+                    wake_model.reset()
                     continue
                 print(f"👤 You: {user_text}")
 
@@ -175,6 +205,8 @@ try:
                 # Speak response
                 print("Speaking soon....")
                 speak(reply)
+
+                wake_model.reset()
 
                 # Resume listening
                 #stream.start_stream()
