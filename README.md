@@ -11,5 +11,6 @@ A Voice assistant hosted completely on raspberry pi 4.
 ## Software
 
 1. Ollama - llama3.2(1b)
-2. Whisper base (STT)
-3. Piper(TTS)
+2. Open Wake model (Hey Jarvis)
+3. Whisper base (STT)
+4. Piper(TTS)
