@@ -14,3 +14,8 @@ A Voice assistant hosted completely on raspberry pi 4.
 2. Open Wake model (Hey Jarvis)
 3. Whisper base (STT)
 4. Piper(TTS)
+
+## Future Scope
+
+- Speaker upgrade
+- quantized model
