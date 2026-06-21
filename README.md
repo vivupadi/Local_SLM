@@ -19,5 +19,6 @@ A Voice assistant hosted completely on raspberry pi 4.
 
 - Speaker upgrade
 - quantized model
+- Newer models
 
 ## Licenses
