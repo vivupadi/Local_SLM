@@ -17,6 +17,7 @@ A Voice assistant hosted completely on raspberry pi 4.
 
 ## Future Scope
 
+- Model upgrade and cloud hosting
 - Speaker upgrade
 - quantized model
 - Newer models
